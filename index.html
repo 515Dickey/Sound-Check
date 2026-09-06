@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sound Check</title>
+<style>
+  :root {
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --bg: #0f1115; --panel: #181b22; --card: #21252e; --text: #e6e8ee; --muted: #8b90a0;
+  }
+  * { box-sizing: border-box; user-select: none; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif; color: var(--text);
+    background: var(--bg); overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: background-color .15s ease;
+  }
+  body.green  { background: #14532d; }
+  body.yellow { background: #713f12; }
+  body.red    { background: #7f1d1d; animation: pulse .5s ease-in-out infinite alternate; }
+  @keyframes pulse { from { background: #7f1d1d; } to { background: #dc2626; } }
+
+  /* title bar */
+  #bar {
+    -webkit-app-region: drag; display: flex; align-items: center; gap: 4px;
+    padding: 6px 8px; font-size: 12px; color: var(--muted); flex: 0 0 auto;
+  }
+  #bar .title { flex: 1; font-weight: 600; letter-spacing: .04em; }
+  #bar button {
+    -webkit-app-region: no-drag; background: transparent; border: 0; color: var(--muted);
+    width: 26px; height: 22px; border-radius: 5px; cursor: pointer; font-size: 13px; line-height: 1;
+  }
+  #bar button:hover { background: rgba(255,255,255,.12); color: var(--text); }
+  #bar button.on { color: var(--text); background: rgba(255,255,255,.18); }
+  #bar #close:hover { background: #c0392b; color: #fff; }
+
+  /* main */
+  #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vmin; padding: 2vmin 4vmin 4vmin; min-height: 0; }
+  #status { font-size: clamp(22px, 12vmin, 96px); font-weight: 800; letter-spacing: .02em; text-align: center; line-height: 1; }
+  #meter {
+    position: relative; width: 100%; max-width: 520px; height: clamp(18px, 6vmin, 40px);
+    background: rgba(0,0,0,.35); border-radius: 999px; overflow: hidden;
+  }
+  #fill { position: absolute; inset: 0; width: 0%; background: var(--green); border-radius: 999px; transition: width .05s linear; }
+  body.yellow #fill { background: var(--yellow); }
+  body.red #fill { background: var(--red); }
+  #peak { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; opacity: .8; left: 0; }
+  .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: rgba(255,255,255,.55); }
+  #readout { font-size: clamp(11px, 3.2vmin, 16px); color: rgba(255,255,255,.75); display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  #readout b { color: #fff; font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+  #hint { font-size: 12px; color: rgba(255,255,255,.6); text-align: center; }
+
+  /* drawers */
+  .drawer {
+    position: absolute; inset: 34px 0 0 0; background: var(--panel); padding: 14px 16px; overflow-y: auto;
+    transform: translateY(100%); transition: transform .2s ease; font-size: 13px;
+  }
+  .drawer.open { transform: translateY(0); }
+  .drawer h3 { margin: 0 0 12px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .row { margin-bottom: 12px; }
+  .row label { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 4px; }
+  .row label b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .row.inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .row.inline label { margin: 0; color: var(--text); }
+  input[type=range] { width: 100%; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: #2563eb; }
+  select, .btn {
+    width: 100%; background: #23272f; color: var(--text); border: 1px solid #333844; border-radius: 6px;
+    padding: 7px 8px; font: inherit;
+  }
+  .btn { cursor: pointer; }
+  .btn:hover { background: #2c313b; }
+  .btn.primary { background: #2563eb; border-color: #2563eb; }
+  .btn.primary:hover { background: #1d4ed8; }
+  .btn.slim { width: auto; padding: 4px 10px; font-size: 12px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .small { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  #calibMsg { min-height: 16px; }
+
+  /* analytics */
+  .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+  .tile { background: var(--card); border-radius: 8px; padding: 10px 12px; }
+  .tile .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile .l { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .tile.red .v { color: var(--red); } .tile.yellow .v { color: var(--yellow); }
+  .section { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+  #chart { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 110px; align-items: end; background: var(--card); border-radius: 8px; padding: 10px 10px 4px; }
+  .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; font-size: 10px; color: var(--muted); }
+  .col .bars { width: 100%; max-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; flex: 1; }
+  .col .r { background: var(--red); border-radius: 3px 3px 0 0; }
+  .col .y { background: var(--yellow); }
+  .col .n { color: var(--text); font-variant-numeric: tabular-nums; }
+  .col.today .d { color: var(--text); font-weight: 700; }
+  #trend { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  #moments { background: var(--card); border-radius: 8px; padding: 6px 12px; max-height: 160px; overflow-y: auto; }
+  #moments div { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-variant-numeric: tabular-nums; }
+  #moments div:last-child { border-bottom: 0; }
+  #moments .empty { color: var(--muted); justify-content: center; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <span class="title">SOUND CHECK</span>
+    <button id="pin" title="Keep on top of other windows">&#128204;</button>
+    <button id="chartBtn" title="Analytics">&#128202;</button>
+    <button id="gear" title="Settings">&#9881;</button>
+    <button id="min" title="Minimize">&ndash;</button>
+    <button id="close" title="Close">&#10005;</button>
+  </div>
+
+  <div id="main">
+    <div id="status">STARTING&hellip;</div>
+    <div id="meter">
+      <div id="fill"></div>
+      <div id="peak"></div>
+      <div class="mark" id="markY"></div>
+      <div class="mark" id="markR"></div>
+    </div>
+    <div id="readout">
+      <span>Level <b id="dbNow">&ndash;</b></span>
+      <span>Today <span class="dot" style="background:var(--yellow)"></span><b id="yCount">0</b>
+        &nbsp; <span class="dot" style="background:var(--red)"></span><b id="rCount">0</b></span>
+    </div>
+    <div id="hint"></div>
+  </div>
+
+  <!-- Analytics -->
+  <div id="analytics" class="drawer">
+    <h3>Analytics <button class="btn slim" id="closeAnalytics">Done</button></h3>
+    <div class="tiles">
+      <div class="tile red"><div class="v" id="tRed">0</div><div class="l">Red today</div></div>
+      <div class="tile yellow"><div class="v" id="tYellow">0</div><div class="l">Yellow today</div></div>
+      <div class="tile"><div class="v" id="tMin">0m</div><div class="l">Monitored today</div></div>
+      <div class="tile"><div class="v" id="tRate">&ndash;</div><div class="l">Reds per hour today</div></div>
+    </div>
+    <div class="section">Last 7 days</div>
+    <div id="chart"></div>
+    <div id="trend"></div>
+    <div class="section">Today's moments</div>
+    <div id="moments"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="clearHist">Clear all history</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="settings" class="drawer">
+    <h3>Settings <button class="btn slim" id="done">Done</button></h3>
+
+    <div class="row">
+      <label>Microphone</label>
+      <select id="mic"></select>
+    </div>
+
+    <div class="row">
+      <label><span><i class="swatch" style="background:var(--yellow)"></i>Yellow starts at</span><b id="yVal"></b></label>
+      <input type="range" id="yTh" min="-60" max="-2" step="1">
+    </div>
+
+    <div class="row">
+      <label><span><i class="swatch" style="background:var(--red)"></i>Red starts at</span><b id="rVal"></b></label>
+      <input type="range" id="rTh" min="-60" max="0" step="1">
+    </div>
+
+    <div class="row">
+      <label><span>Notifications stay lit for</span><b id="hVal"></b></label>
+      <input type="range" id="hold" min="0.5" max="10" step="0.5">
+      <div class="small">Yellow and red both stay on this long after the voice drops, so a spike is still visible when he looks over.</div>
+    </div>
+
+    <div class="row inline">
+      <label for="chime">Chime on red</label>
+      <input type="checkbox" id="chime">
+    </div>
+    <div class="row">
+      <label><span>Chime volume</span><b id="cvVal"></b></label>
+      <input type="range" id="chimeVol" min="0" max="1" step="0.05">
+      <button class="btn" id="testChime" style="margin-top:6px">Test chime</button>
+    </div>
+
+    <div class="row">
+      <button class="btn primary" id="calib">Auto-set from normal talking (5 s)</button>
+      <div class="small">Have Sean talk at a normal, acceptable volume for 5 seconds. Yellow and Red are set a bit above that.</div>
+      <div class="small" id="calibMsg"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // localStorage can be unavailable (e.g. data: previews); never let that break the meter.
+  const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const body = document.body;
+
+  // ---- settings (persisted) ----
+  const DEFAULTS = { yellow: -24, red: -12, hold: 3, chime: true, chimeVol: 0.5, mic: '', v: 2 };
+  let cfg = { ...DEFAULTS };
+  try { cfg = { ...DEFAULTS, ...JSON.parse(LS.get('vm-cfg') || '{}') }; } catch (e) {}
+  if (cfg.v < 2) { cfg.hold = Math.max(cfg.hold, 3); cfg.v = 2; }   // v1 default hold was 1.5 s
+  const save = () => LS.set('vm-cfg', JSON.stringify(cfg));
+
+  const MIN_DB = -60, MAX_DB = 0;
+  const pct = db => Math.max(0, Math.min(100, (db - MIN_DB) / (MAX_DB - MIN_DB) * 100));
+
+  function syncUI() {
+    if (cfg.red <= cfg.yellow) cfg.red = cfg.yellow + 1;
+    $('yTh').value = cfg.yellow; $('rTh').value = cfg.red; $('hold').value = cfg.hold;
+    $('chime').checked = !!cfg.chime; $('chimeVol').value = cfg.chimeVol;
+    $('yVal').textContent = cfg.yellow + ' dB';
+    $('rVal').textContent = cfg.red + ' dB';
+    $('hVal').textContent = cfg.hold + ' s';
+    $('cvVal').textContent = Math.round(cfg.chimeVol * 100) + '%';
+    $('markY').style.left = pct(cfg.yellow) + '%';
+    $('markR').style.left = pct(cfg.red) + '%';
+  }
+  $('yTh').oninput = e => { cfg.yellow = +e.target.value; if (cfg.red <= cfg.yellow) cfg.red = cfg.yellow + 1; syncUI(); save(); };
+  $('rTh').oninput = e => { cfg.red = +e.target.value; if (cfg.yellow >= cfg.red) cfg.yellow = cfg.red - 1; syncUI(); save(); };
+  $('hold').oninput = e => { cfg.hold = +e.target.value; syncUI(); save(); };
+  $('chime').onchange = e => { cfg.chime = e.target.checked; save(); };
+  $('chimeVol').oninput = e => { cfg.chimeVol = +e.target.value; syncUI(); save(); };
+  $('testChime').onclick = () => playChime(true);
+  save();
+  syncUI();
+
+  // ---- window chrome / drawers ----
+  const hasVm = !!window.vm;
+  $('close').onclick = () => hasVm ? window.vm.close() : window.close();
+  $('min').onclick = () => hasVm && window.vm.minimize();
+  function openDrawer(id) {
+    for (const d of document.querySelectorAll('.drawer')) d.classList.toggle('open', d.id === id && !d.classList.contains('open'));
+    if ($('analytics').classList.contains('open')) renderAnalytics();
+  }
+  $('gear').onclick = () => openDrawer('settings');
+  $('chartBtn').onclick = () => openDrawer('analytics');
+  $('done').onclick = () => $('settings').classList.remove('open');
+  $('closeAnalytics').onclick = () => $('analytics').classList.remove('open');
+  async function refreshPin() { if (!hasVm) return; $('pin').classList.toggle('on', await window.vm.isTop()); }
+  $('pin').onclick = async () => { if (hasVm) { await window.vm.toggleTop(); refreshPin(); } };
+  refreshPin();
+
+  // ---- history (events + monitored time) ----
+  const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  let events = [];    // [{ t: epoch ms, s: 'yellow' | 'red' }] one per loudness episode, at its peak colour
+  let minutes = {};   // { 'YYYY-MM-DD': seconds monitored }
+  try { events = JSON.parse(LS.get('vm-events') || '[]'); } catch (e) {}
+  try { minutes = JSON.parse(LS.get('vm-minutes') || '{}'); } catch (e) {}
+  const saveEvents = () => { if (events.length > 5000) events = events.slice(-5000); LS.set('vm-events', JSON.stringify(events)); };
+  const saveMinutes = () => LS.set('vm-minutes', JSON.stringify(minutes));
+
+  function todayCounts() {
+    const k = dayKey(); let y = 0, r = 0;
+    for (const e of events) if (dayKey(new Date(e.t)) === k) { if (e.s === 'red') r++; else y++; }
+    return { y, r };
+  }
+  function updateCounts() { const c = todayCounts(); $('yCount').textContent = c.y; $('rCount').textContent = c.r; }
+  updateCounts();
+  $('clearHist').onclick = () => {
+    if (!confirm('Clear all history? This removes every day of counts.')) return;
+    events = []; minutes = {}; saveEvents(); saveMinutes(); updateCounts(); renderAnalytics();
+  };
+
+  let lastDay = dayKey();
+  setInterval(() => {
+    if (analyser) { const k = dayKey(); minutes[k] = (minutes[k] || 0) + 5; saveMinutes(); }
+    if (dayKey() !== lastDay) { lastDay = dayKey(); updateCounts(); }   // roll the on-screen counter at midnight
+  }, 5000);
+
+  function fmtTime(t) { return new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function fmtMin(sec) { const m = Math.round(sec / 60); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  function renderAnalytics() {
+    const c = todayCounts(); const k = dayKey();
+    $('tRed').textContent = c.r; $('tYellow').textContent = c.y;
+    const sec = minutes[k] || 0;
+    $('tMin').textContent = fmtMin(sec);
+    $('tRate').textContent = sec >= 300 ? (c.r / (sec / 3600)).toFixed(1) : '–';
+
+    // last 7 days
+    const days = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push({ key: dayKey(d), label: 'SMTWTFS'[d.getDay()], y: 0, r: 0 }); }
+    for (const e of events) { const d = days.find(x => x.key === dayKey(new Date(e.t))); if (d) { if (e.s === 'red') d.r++; else d.y++; } }
+    const max = Math.max(1, ...days.map(d => d.y + d.r));
+    $('chart').innerHTML = days.map(d => {
+      const total = d.y + d.r;
+      return '<div class="col' + (d.key === k ? ' today' : '') + '">' +
+        '<span class="n">' + (total || '') + '</span>' +
+        '<div class="bars">' +
+          '<div class="r" style="height:' + (d.r / max * 100) + '%"></div>' +
+          '<div class="y" style="height:' + (d.y / max * 100) + '%"></div>' +
+        '</div><span class="d">' + d.label + '</span></div>';
+    }).join('');
+
+    const prior = days.slice(0, 6).filter(d => (minutes[d.key] || 0) > 0);
+    if (prior.length) {
+      const avg = prior.reduce((s, d) => s + d.r, 0) / prior.length;
+      const diff = avg ? Math.round((c.r - avg) / avg * 100) : null;
+      $('trend').textContent = 'Reds today ' + c.r + ' vs. ' + avg.toFixed(1) + ' per day over the last ' + prior.length + ' monitored day' + (prior.length > 1 ? 's' : '') +
+        (diff === null ? '' : diff <= 0 ? ' (' + Math.abs(diff) + '% fewer)' : ' (' + diff + '% more)') + '.';
+    } else {
+      $('trend').textContent = 'Trend appears after a second day of use.';
+    }
+
+    const todays = events.filter(e => dayKey(new Date(e.t)) === k).slice(-30).reverse();
+    $('moments').innerHTML = todays.length
+      ? todays.map(e => '<div><span><span class="dot" style="background:var(--' + e.s + ')"></span>' + (e.s === 'red' ? 'Too loud' : 'Getting loud') + '</span><span>' + fmtTime(e.t) + '</span></div>').join('')
+      : '<div class="empty">Nothing yet today</div>';
+  }
+
+  // ---- audio ----
+  let ctx, analyser, stream, buf;
+  let level = MIN_DB;     // smoothed dB
+  let peak = MIN_DB, peakAt = 0;
+  const RANK = { green: 0, yellow: 1, red: 2 };
+  let state = 'green', holdUntil = 0, episodeIdx = -1, ignoreUntil = 0;
+
+  function playChime(force) {
+    if ((!force && !cfg.chime) || cfg.chimeVol <= 0) return;
+    ctx = ctx || new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime, vol = cfg.chimeVol * 0.6;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.connect(ctx.destination);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(880, t); o.frequency.setValueAtTime(660, t + 0.13);
+    o.connect(g);
+    g.gain.linearRampToValueAtTime(vol, t + 0.015);
+    g.gain.setValueAtTime(vol, t + 0.22);
+    g.gain.linearRampToValueAtTime(0, t + 0.32);
+    o.start(t); o.stop(t + 0.34);
+    ignoreUntil = performance.now() + 500;   // don't let the chime itself re-trigger via speakers
+  }
+
+  async function start(deviceId) {
+    stop();
+    try {
+      const constraints = {
+        audio: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          echoCancellation: false, noiseSuppression: false, autoGainControl: false
+        }
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      ctx = ctx || new AudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      const src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      src.connect(analyser);
+      $('hint').textContent = '';
+      $('status').textContent = 'GOOD';
+      await listMics();
+    } catch (err) {
+      $('status').textContent = 'NO MIC';
+      $('hint').textContent = 'Could not open the microphone: ' + (err.message || err) +
+        '. Check Windows Settings > Privacy > Microphone > "Let desktop apps access your microphone".';
+      body.className = '';
+    }
+  }
+
+  function stop() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    analyser = null;
+  }
+
+  async function listMics() {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    const sel = $('mic');
+    sel.innerHTML = '';
+    const def = document.createElement('option'); def.value = ''; def.textContent = 'System default';
+    sel.appendChild(def);
+    for (const d of devs) {
+      const o = document.createElement('option');
+      o.value = d.deviceId; o.textContent = d.label || ('Microphone ' + sel.length);
+      sel.appendChild(o);
+    }
+    sel.value = [...sel.options].some(o => o.value === cfg.mic) ? cfg.mic : '';
+  }
+  $('mic').onchange = e => { cfg.mic = e.target.value; save(); start(cfg.mic); };
+  if (navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => analyser && listMics());
+  }
+
+  // ---- calibration ----
+  let calibSamples = null;
+  $('calib').onclick = () => {
+    if (!analyser) { $('calibMsg').textContent = 'Microphone is not running.'; return; }
+    calibSamples = [];
+    const btn = $('calib'); btn.disabled = true;
+    let left = 5;
+    $('calibMsg').textContent = 'Talk normally... ' + left;
+    const tick = setInterval(() => {
+      left--;
+      if (left > 0) { $('calibMsg').textContent = 'Talk normally... ' + left; return; }
+      clearInterval(tick); btn.disabled = false;
+      const voiced = calibSamples.filter(v => v > MIN_DB + 5).sort((a, b) => a - b);
+      calibSamples = null;
+      if (voiced.length < 20) { $('calibMsg').textContent = 'Did not hear enough talking. Try again.'; return; }
+      // Use the loud end of normal speech (90th percentile) as the reference.
+      const ref = voiced[Math.floor(voiced.length * 0.9)];
+      cfg.yellow = Math.round(Math.min(-4, ref + 4));
+      cfg.red = Math.round(Math.min(0, ref + 10));
+      syncUI(); save();
+      $('calibMsg').textContent = 'Set: yellow ' + cfg.yellow + ' dB, red ' + cfg.red + ' dB (normal peak was ' + Math.round(ref) + ' dB).';
+    }, 1000);
+  };
+
+  // ---- state machine ----
+  // One "episode" runs from leaving green until returning to green. It is logged once,
+  // as yellow when it starts and upgraded to red if it escalates.
+  function setState(now, target) {
+    const up = RANK[target] > RANK[state];
+    if (up) {
+      if (target === 'red') {
+        if (episodeIdx >= 0 && events[episodeIdx]) events[episodeIdx].s = 'red';
+        else { events.push({ t: Date.now(), s: 'red' }); episodeIdx = events.length - 1; }
+        playChime(false);
+      } else {
+        events.push({ t: Date.now(), s: 'yellow' }); episodeIdx = events.length - 1;
+      }
+      saveEvents(); updateCounts();
+      state = target; holdUntil = now + cfg.hold * 1000;
+    } else if (target === state) {
+      if (state !== 'green') holdUntil = now + cfg.hold * 1000;   // still loud: keep extending
+    } else if (now >= holdUntil) {
+      state = target;                                            // hold expired: step down
+      if (state === 'green') episodeIdx = -1; else holdUntil = now + cfg.hold * 1000;
+    }
+  }
+
+  // ---- meter loop ----
+  function loop(now) {
+    requestAnimationFrame(loop);
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    const rms = Math.sqrt(sum / buf.length);
+    const db = Math.max(MIN_DB, 20 * Math.log10(rms || 1e-6));
+
+    // fast attack, slower release
+    level += (db - level) * (db > level ? 0.6 : 0.12);
+    if (calibSamples) calibSamples.push(db);
+    if (db >= peak || now - peakAt > 1200) { peak = db; peakAt = now; }
+
+    if (now >= ignoreUntil) {
+      const target = level >= cfg.red ? 'red' : level >= cfg.yellow ? 'yellow' : 'green';
+      setState(now, target);
+    }
+
+    if (body.className !== state) {
+      body.className = state;
+      $('status').textContent = state === 'green' ? 'GOOD' : state === 'yellow' ? 'EASY...' : 'TOO LOUD';
+    }
+    $('fill').style.width = pct(level) + '%';
+    $('peak').style.left = 'calc(' + pct(peak) + '% - 2px)';
+    $('dbNow').textContent = Math.round(level) + ' dB';
+  }
+  requestAnimationFrame(loop);
+
+  start(cfg.mic);
+})();
+</script>
+</body>
+</html>

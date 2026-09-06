@@ -1,0 +1,39 @@
+{
+  "name": "voice-meter",
+  "productName": "Sound Check",
+  "version": "1.0.0",
+  "description": "Sound Check: green / yellow / red microphone volume monitor for gaming",
+  "main": "main.js",
+  "author": "Dickey",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.dickey.soundcheck",
+    "productName": "Sound Check",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "SoundCheck.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}
