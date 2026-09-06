@@ -1,7 +1,7 @@
 {
   "name": "voice-meter",
   "productName": "Sound Check",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sound Check: green / yellow / red microphone volume monitor for gaming",
   "main": "main.js",
   "author": "Dickey",
