@@ -65,6 +65,10 @@
   .row.inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .row.inline label { margin: 0; color: var(--text); }
   input[type=range] { width: 100%; }
+  input[type=password] {
+    width: 100%; background: #23272f; color: var(--text); border: 1px solid #333844; border-radius: 6px;
+    padding: 7px 8px; font: inherit; letter-spacing: .3em;
+  }
   input[type=checkbox] { width: 18px; height: 18px; accent-color: #2563eb; }
   select, .btn {
     width: 100%; background: #23272f; color: var(--text); border: 1px solid #333844; border-radius: 6px;
@@ -140,12 +144,9 @@
     <div id="trend"></div>
     <div class="section">Today's moments</div>
     <div id="moments"></div>
-    <div class="row" style="margin-top:14px">
-      <button class="btn" id="clearHist">Clear all history</button>
-    </div>
   </div>
 
-  <!-- Settings -->
+  <!-- Settings (anyone) -->
   <div id="settings" class="drawer">
     <h3>Settings <button class="btn slim" id="done">Done</button></h3>
 
@@ -153,6 +154,20 @@
       <label>Microphone</label>
       <select id="mic"></select>
     </div>
+
+    <div class="row" style="margin-top:22px">
+      <button class="btn" id="parentBtn">Parent settings&hellip;</button>
+      <div id="pinRow" style="display:none; margin-top:8px">
+        <input type="password" id="pinIn" inputmode="numeric" maxlength="8" placeholder="PIN" autocomplete="off">
+        <button class="btn primary" id="pinGo" style="margin-top:6px">Unlock</button>
+        <div class="small" id="pinMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Parent settings (PIN) -->
+  <div id="admin" class="drawer">
+    <h3>Parent settings <button class="btn slim" id="adminDone">Lock</button></h3>
 
     <div class="row">
       <label><span><i class="swatch" style="background:var(--yellow)"></i>Yellow starts at</span><b id="yVal"></b></label>
@@ -170,20 +185,37 @@
       <div class="small">Yellow and red both stay on this long after the voice drops, so a spike is still visible when he looks over.</div>
     </div>
 
+    <div class="row">
+      <button class="btn primary" id="calib">Auto-set from normal talking (5 s)</button>
+      <div class="small">Have Sean talk at a normal, acceptable volume for 5 seconds. Yellow and Red are set a bit above that.</div>
+      <div class="small" id="calibMsg"></div>
+    </div>
+
+    <div class="section">Sounds</div>
+    <div class="row inline">
+      <label for="yellowTone">Soft tone on yellow</label>
+      <input type="checkbox" id="yellowTone">
+    </div>
     <div class="row inline">
       <label for="chime">Chime on red</label>
       <input type="checkbox" id="chime">
     </div>
     <div class="row">
-      <label><span>Chime volume</span><b id="cvVal"></b></label>
+      <label><span>Sound volume</span><b id="cvVal"></b></label>
       <input type="range" id="chimeVol" min="0" max="1" step="0.05">
-      <button class="btn" id="testChime" style="margin-top:6px">Test chime</button>
+      <div style="display:flex; gap:8px; margin-top:6px">
+        <button class="btn" id="testTone">Test yellow</button>
+        <button class="btn" id="testChime">Test red</button>
+      </div>
     </div>
 
+    <div class="section">Other</div>
     <div class="row">
-      <button class="btn primary" id="calib">Auto-set from normal talking (5 s)</button>
-      <div class="small">Have Sean talk at a normal, acceptable volume for 5 seconds. Yellow and Red are set a bit above that.</div>
-      <div class="small" id="calibMsg"></div>
+      <button class="btn" id="changePin">Change PIN</button>
+      <div class="small" id="pinChangeMsg"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="clearHist">Clear all history</button>
     </div>
   </div>
 
@@ -195,10 +227,11 @@
   const body = document.body;
 
   // ---- settings (persisted) ----
-  const DEFAULTS = { yellow: -24, red: -12, hold: 3, chime: true, chimeVol: 0.5, mic: '', v: 2 };
+  const DEFAULTS = { yellow: -24, red: -12, hold: 3, chime: true, yellowTone: true, chimeVol: 0.5, pin: '1234', mic: '', v: 3 };
   let cfg = { ...DEFAULTS };
   try { cfg = { ...DEFAULTS, ...JSON.parse(LS.get('vm-cfg') || '{}') }; } catch (e) {}
-  if (cfg.v < 2) { cfg.hold = Math.max(cfg.hold, 3); cfg.v = 2; }   // v1 default hold was 1.5 s
+  if (cfg.v < 2) { cfg.hold = Math.max(cfg.hold, 3); }   // v1 default hold was 1.5 s
+  cfg.v = 3;
   const save = () => LS.set('vm-cfg', JSON.stringify(cfg));
 
   const MIN_DB = -60, MAX_DB = 0;
@@ -207,7 +240,7 @@
   function syncUI() {
     if (cfg.red <= cfg.yellow) cfg.red = cfg.yellow + 1;
     $('yTh').value = cfg.yellow; $('rTh').value = cfg.red; $('hold').value = cfg.hold;
-    $('chime').checked = !!cfg.chime; $('chimeVol').value = cfg.chimeVol;
+    $('chime').checked = !!cfg.chime; $('yellowTone').checked = !!cfg.yellowTone; $('chimeVol').value = cfg.chimeVol;
     $('yVal').textContent = cfg.yellow + ' dB';
     $('rVal').textContent = cfg.red + ' dB';
     $('hVal').textContent = cfg.hold + ' s';
@@ -219,6 +252,8 @@
   $('rTh').oninput = e => { cfg.red = +e.target.value; if (cfg.yellow >= cfg.red) cfg.yellow = cfg.red - 1; syncUI(); save(); };
   $('hold').oninput = e => { cfg.hold = +e.target.value; syncUI(); save(); };
   $('chime').onchange = e => { cfg.chime = e.target.checked; save(); };
+  $('yellowTone').onchange = e => { cfg.yellowTone = e.target.checked; save(); };
+  $('testTone').onclick = () => playYellowTone(true);
   $('chimeVol').oninput = e => { cfg.chimeVol = +e.target.value; syncUI(); save(); };
   $('testChime').onclick = () => playChime(true);
   save();
@@ -234,8 +269,33 @@
   }
   $('gear').onclick = () => openDrawer('settings');
   $('chartBtn').onclick = () => openDrawer('analytics');
-  $('done').onclick = () => $('settings').classList.remove('open');
+  $('done').onclick = () => { $('settings').classList.remove('open'); hidePin(); };
+  $('adminDone').onclick = () => $('admin').classList.remove('open');
+
+  // ---- parent panel (PIN) ----
+  function hidePin() { $('pinRow').style.display = 'none'; $('pinIn').value = ''; $('pinMsg').textContent = ''; }
+  $('parentBtn').onclick = () => { $('pinRow').style.display = 'block'; $('pinIn').focus({ preventScroll: true }); };
+  function tryPin() {
+    if ($('pinIn').value === cfg.pin) {
+      hidePin();
+      $('settings').classList.remove('open');
+      $('admin').classList.add('open');
+    } else {
+      $('pinMsg').textContent = 'Wrong PIN.'; $('pinIn').value = ''; $('pinIn').focus({ preventScroll: true });
+    }
+  }
+  $('pinGo').onclick = tryPin;
+  $('pinIn').onkeydown = e => { if (e.key === 'Enter') tryPin(); };
+  $('changePin').onclick = () => {
+    const p = prompt('New PIN (4 to 8 digits):');
+    if (p == null) return;
+    if (!/^\d{4,8}$/.test(p)) { $('pinChangeMsg').textContent = 'PIN must be 4 to 8 digits.'; return; }
+    cfg.pin = p; save(); $('pinChangeMsg').textContent = 'PIN changed.';
+  };
   $('closeAnalytics').onclick = () => $('analytics').classList.remove('open');
+  // The layout is fixed-size; snap back if focus ever scrolls the page.
+  window.addEventListener('scroll', () => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); });
+  document.body.addEventListener('scroll', () => { document.body.scrollTop = 0; });
   async function refreshPin() { if (!hasVm) return; $('pin').classList.toggle('on', await window.vm.isTop()); }
   $('pin').onclick = async () => { if (hasVm) { await window.vm.toggleTop(); refreshPin(); } };
   refreshPin();
@@ -331,6 +391,22 @@
     ignoreUntil = performance.now() + 500;   // don't let the chime itself re-trigger via speakers
   }
 
+  // Soft single tone when it first turns yellow: quieter and shorter than the red chime.
+  function playYellowTone(force) {
+    if ((!force && !cfg.yellowTone) || cfg.chimeVol <= 0) return;
+    ctx = ctx || new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime, vol = cfg.chimeVol * 0.3;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.connect(ctx.destination);
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(587, t);
+    o.connect(g);
+    g.gain.linearRampToValueAtTime(vol, t + 0.015);
+    g.gain.setValueAtTime(vol, t + 0.10);
+    g.gain.linearRampToValueAtTime(0, t + 0.18);
+    o.start(t); o.stop(t + 0.2);
+    ignoreUntil = performance.now() + 300;
+  }
+
   async function start(deviceId) {
     stop();
     try {
@@ -418,6 +494,7 @@
         playChime(false);
       } else {
         events.push({ t: Date.now(), s: 'yellow' }); episodeIdx = events.length - 1;
+        playYellowTone(false);
       }
       saveEvents(); updateCounts();
       state = target; holdUntil = now + cfg.hold * 1000;

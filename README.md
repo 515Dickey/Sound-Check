@@ -48,14 +48,20 @@ Manager > Startup apps.
   looks over. The bar shows the live level with white tick marks at the yellow
   and red thresholds. The counters under the bar are today's yellow and red
   episodes and reset at midnight.
-- A short two-tone chime plays through the default output (his headset) each
-  time it goes red. Toggle it or set its volume in settings.
+- A soft single tone plays when it first turns yellow, and a louder two-tone
+  chime plays when it goes red. Both go through the default output (his
+  headset). Each can be switched off in Parent settings.
 - Chart icon opens Analytics: today's red / yellow counts, minutes monitored,
   reds per hour, a 7-day chart, today's reds vs. the prior-days average, and a
   list of today's moments with times. History lives on his PC only.
-- Gear icon opens settings: pick the mic, drag the yellow/red sliders, set how
-  long notifications stay lit, chime on/off and volume, or press "Auto-set from
-  normal talking" and have Sean talk at an acceptable volume for 5 seconds.
+- Gear icon opens settings. Anyone can pick the microphone there. Everything
+  else sits behind "Parent settings", which asks for a PIN.
+- Parent settings holds the yellow and red thresholds, how long notifications
+  stay lit, the "Auto-set from normal talking" calibration, both sounds and
+  their volume, Change PIN, and Clear all history.
+- The PIN starts as 1234. Change it the first time you open Parent settings.
+  If it is ever forgotten, delete the folder `%APPDATA%Sound Check` with the
+  app closed. That resets the PIN, thresholds, and history to defaults.
 - Pin icon toggles "stay on top of other windows" (on by default).
 
 ## Development
