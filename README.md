@@ -67,7 +67,8 @@ Manager > Startup apps.
 - Parent settings holds the yellow and red thresholds, how long notifications
   stay lit, the "Auto-set from normal talking" calibration, both sounds and
   their volume, Change PIN, and Clear all history.
-- The PIN starts as 1234. Change it the first time you open Parent settings.
+- Set your own PIN with Change PIN the first time you open Parent settings.
+  The starting PIN is in the parent setup notes, not here.
   If it is ever forgotten, delete the folder `%APPDATA%Sound Check` with the
   app closed. That resets the PIN, thresholds, and history to defaults.
 - Pin icon toggles "stay on top of other windows" (on by default).
