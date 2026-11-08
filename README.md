@@ -48,11 +48,19 @@ Manager > Startup apps.
   looks over. The bar shows the live level with white tick marks at the yellow
   and red thresholds. The counters under the bar are today's yellow and red
   episodes and reset at midnight.
+- GREEN STREAK is the big number under the counts. Each time Sean says
+  something and it stays green, it goes up by one. Going yellow or red resets
+  it to zero, and the line underneath shows his last streak and best today.
+  Silence never adds anything, so leaving the app on does not grow it.
+  Milestones at 10, 25, 50, 75, 100, 150, 200, and every 100 after that pop a
+  short celebration, as do a new best today and a new all-time record. Parent
+  settings can switch the reset to red only.
 - A soft single tone plays when it first turns yellow, and a louder two-tone
   chime plays when it goes red. Both go through the default output (his
   headset). Each can be switched off in Parent settings.
 - Chart icon opens Analytics: today's red / yellow counts, minutes monitored,
-  reds per hour, a 7-day chart, today's reds vs. the prior-days average, and a
+  reds per hour, best green streak today and ever, the share of today's talking
+  that stayed green, a 7-day chart of best streaks, a 7-day chart, today's reds vs. the prior-days average, and a
   list of today's moments with times. History lives on his PC only.
 - Gear icon opens settings. Anyone can pick the microphone there. Everything
   else sits behind "Parent settings", which asks for a PIN.

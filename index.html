@@ -36,8 +36,8 @@
   #bar #close:hover { background: #c0392b; color: #fff; }
 
   /* main */
-  #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vmin; padding: 2vmin 4vmin 4vmin; min-height: 0; }
-  #status { font-size: clamp(22px, 12vmin, 96px); font-weight: 800; letter-spacing: .02em; text-align: center; line-height: 1; }
+  #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vmin; padding: 2vmin 4vmin 4vmin; min-height: 0; }
+  #status { font-size: clamp(20px, 9vmin, 80px); font-weight: 800; letter-spacing: .02em; text-align: center; line-height: 1; }
   #meter {
     position: relative; width: 100%; max-width: 520px; height: clamp(18px, 6vmin, 40px);
     background: rgba(0,0,0,.35); border-radius: 999px; overflow: hidden;
@@ -50,6 +50,21 @@
   #readout { font-size: clamp(11px, 3.2vmin, 16px); color: rgba(255,255,255,.75); display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
   #readout b { color: #fff; font-variant-numeric: tabular-nums; }
   .dot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+  /* green streak: the focal number, under the counts */
+  #streak { text-align: center; line-height: 1; margin-top: 1vmin; }
+  #streak .sLabel { font-size: clamp(10px, 3vmin, 14px); letter-spacing: .14em; font-weight: 700; color: #86efac; }
+  #streak .sNum { font-size: clamp(34px, 17vmin, 140px); font-weight: 800; font-variant-numeric: tabular-nums; color: #fff; margin: .6vmin 0; }
+  #streak .sNum.bump { animation: bump .25s ease-out; }
+  @keyframes bump { from { transform: scale(1.12); } to { transform: none; } }
+  body.yellow #streak .sLabel, body.red #streak .sLabel { color: rgba(255,255,255,.7); }
+  #streak .sSub { font-size: clamp(11px, 3vmin, 15px); color: rgba(255,255,255,.75); font-variant-numeric: tabular-nums; }
+  #streakToast {
+    font-size: clamp(12px, 3.6vmin, 18px); font-weight: 700; color: #052e16; background: #86efac;
+    padding: 4px 12px; border-radius: 999px; opacity: 0; transform: translateY(4px); transition: opacity .25s, transform .25s;
+  }
+  #streakToast.show { opacity: 1; transform: none; }
+  .tile.green .v { color: #86efac; }
+  .col .g { background: var(--green); border-radius: 3px 3px 0 0; }
   #hint { font-size: 12px; color: rgba(255,255,255,.6); text-align: center; }
 
   /* drawers */
@@ -90,7 +105,7 @@
   .tile .l { color: var(--muted); font-size: 11px; margin-top: 2px; }
   .tile.red .v { color: var(--red); } .tile.yellow .v { color: var(--yellow); }
   .section { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
-  #chart { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 110px; align-items: end; background: var(--card); border-radius: 8px; padding: 10px 10px 4px; }
+  #chart, #streakChart { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 110px; align-items: end; background: var(--card); border-radius: 8px; padding: 10px 10px 4px; }
   .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; font-size: 10px; color: var(--muted); }
   .col .bars { width: 100%; max-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; flex: 1; }
   .col .r { background: var(--red); border-radius: 3px 3px 0 0; }
@@ -127,6 +142,12 @@
       <span>Today <span class="dot" style="background:var(--yellow)"></span><b id="yCount">0</b>
         &nbsp; <span class="dot" style="background:var(--red)"></span><b id="rCount">0</b></span>
     </div>
+    <div id="streak">
+      <div class="sLabel">GREEN STREAK</div>
+      <div class="sNum" id="streakNum">0</div>
+      <div class="sSub" id="streakSub">in a row</div>
+    </div>
+    <div id="streakToast"></div>
     <div id="hint"></div>
   </div>
 
@@ -138,10 +159,15 @@
       <div class="tile yellow"><div class="v" id="tYellow">0</div><div class="l">Yellow today</div></div>
       <div class="tile"><div class="v" id="tMin">0m</div><div class="l">Monitored today</div></div>
       <div class="tile"><div class="v" id="tRate">&ndash;</div><div class="l">Reds per hour today</div></div>
+      <div class="tile green"><div class="v" id="tBest">0</div><div class="l">Best streak today</div></div>
+      <div class="tile green"><div class="v" id="tRecord">0</div><div class="l">Best streak ever</div></div>
+      <div class="tile green" style="grid-column: span 2"><div class="v" id="tPct">&ndash;</div><div class="l">Talking in green today</div></div>
     </div>
     <div class="section">Last 7 days</div>
     <div id="chart"></div>
     <div id="trend"></div>
+    <div class="section">Best green streak, last 7 days</div>
+    <div id="streakChart"></div>
     <div class="section">Today's moments</div>
     <div id="moments"></div>
   </div>
@@ -191,6 +217,16 @@
       <div class="small" id="calibMsg"></div>
     </div>
 
+    <div class="section">Green streak</div>
+    <div class="row">
+      <label>Streak resets on</label>
+      <select id="streakReset">
+        <option value="yellow">Yellow or red</option>
+        <option value="red">Red only</option>
+      </select>
+      <div class="small">Each time he says something and it stays in range, the streak goes up by one. Silence never counts, so leaving it on does nothing.</div>
+    </div>
+
     <div class="section">Sounds</div>
     <div class="row inline">
       <label for="yellowTone">Soft tone on yellow</label>
@@ -227,7 +263,7 @@
   const body = document.body;
 
   // ---- settings (persisted) ----
-  const DEFAULTS = { yellow: -24, red: -12, hold: 3, chime: true, yellowTone: true, chimeVol: 0.5, pin: '1234', mic: '', v: 3 };
+  const DEFAULTS = { yellow: -24, red: -12, hold: 3, chime: true, yellowTone: true, chimeVol: 0.5, pin: '1234', streakReset: 'yellow', mic: '', v: 3 };
   let cfg = { ...DEFAULTS };
   try { cfg = { ...DEFAULTS, ...JSON.parse(LS.get('vm-cfg') || '{}') }; } catch (e) {}
   if (cfg.v < 2) { cfg.hold = Math.max(cfg.hold, 3); }   // v1 default hold was 1.5 s
@@ -240,7 +276,7 @@
   function syncUI() {
     if (cfg.red <= cfg.yellow) cfg.red = cfg.yellow + 1;
     $('yTh').value = cfg.yellow; $('rTh').value = cfg.red; $('hold').value = cfg.hold;
-    $('chime').checked = !!cfg.chime; $('yellowTone').checked = !!cfg.yellowTone; $('chimeVol').value = cfg.chimeVol;
+    $('streakReset').value = cfg.streakReset; $('chime').checked = !!cfg.chime; $('yellowTone').checked = !!cfg.yellowTone; $('chimeVol').value = cfg.chimeVol;
     $('yVal').textContent = cfg.yellow + ' dB';
     $('rVal').textContent = cfg.red + ' dB';
     $('hVal').textContent = cfg.hold + ' s';
@@ -252,6 +288,7 @@
   $('rTh').oninput = e => { cfg.red = +e.target.value; if (cfg.yellow >= cfg.red) cfg.yellow = cfg.red - 1; syncUI(); save(); };
   $('hold').oninput = e => { cfg.hold = +e.target.value; syncUI(); save(); };
   $('chime').onchange = e => { cfg.chime = e.target.checked; save(); };
+  $('streakReset').onchange = e => { cfg.streakReset = e.target.value; save(); };
   $('yellowTone').onchange = e => { cfg.yellowTone = e.target.checked; save(); };
   $('testTone').onclick = () => playYellowTone(true);
   $('chimeVol').oninput = e => { cfg.chimeVol = +e.target.value; syncUI(); save(); };
@@ -314,11 +351,19 @@
     for (const e of events) if (dayKey(new Date(e.t)) === k) { if (e.s === 'red') r++; else y++; }
     return { y, r };
   }
+  // Green streak data: all-time record, best per day, and per-day count of things said in green vs. loud.
+  const EMPTY_SD = () => ({ record: 0, bestByDay: {}, talkByDay: {} });
+  let sd = EMPTY_SD();
+  try { sd = { ...sd, ...JSON.parse(LS.get('vm-streak-count') || '{}') }; } catch (e) {}
+  const saveStreak = () => LS.set('vm-streak-count', JSON.stringify(sd));
+
   function updateCounts() { const c = todayCounts(); $('yCount').textContent = c.y; $('rCount').textContent = c.r; }
   updateCounts();
   $('clearHist').onclick = () => {
     if (!confirm('Clear all history? This removes every day of counts.')) return;
-    events = []; minutes = {}; saveEvents(); saveMinutes(); updateCounts(); renderAnalytics();
+    events = []; minutes = {}; saveEvents(); saveMinutes();
+    sd = EMPTY_SD(); saveStreak(); streak = 0; lastStreak = 0; renderStreak();
+    updateCounts(); renderAnalytics();
   };
 
   let lastDay = dayKey();
@@ -336,6 +381,10 @@
     const sec = minutes[k] || 0;
     $('tMin').textContent = fmtMin(sec);
     $('tRate').textContent = sec >= 300 ? (c.r / (sec / 3600)).toFixed(1) : '–';
+    $('tBest').textContent = sd.bestByDay[k] || 0;
+    $('tRecord').textContent = sd.record || 0;
+    const tk = sd.talkByDay[k] || { g: 0, l: 0 };
+    $('tPct').textContent = tk.g + tk.l >= 10 ? Math.round(tk.g / (tk.g + tk.l) * 100) + '%' : '–';
 
     // last 7 days
     const days = [];
@@ -350,6 +399,15 @@
           '<div class="r" style="height:' + (d.r / max * 100) + '%"></div>' +
           '<div class="y" style="height:' + (d.y / max * 100) + '%"></div>' +
         '</div><span class="d">' + d.label + '</span></div>';
+    }).join('');
+
+    const smax = Math.max(10, ...days.map(d => sd.bestByDay[d.key] || 0));
+    $('streakChart').innerHTML = days.map(d => {
+      const b = sd.bestByDay[d.key] || 0;
+      return '<div class="col' + (d.key === k ? ' today' : '') + '">' +
+        '<span class="n">' + (b || '') + '</span>' +
+        '<div class="bars"><div class="g" style="height:' + (b / smax * 100) + '%"></div></div>' +
+        '<span class="d">' + d.label + '</span></div>';
     }).join('');
 
     const prior = days.slice(0, 6).filter(d => (minutes[d.key] || 0) > 0);
@@ -374,6 +432,76 @@
   let peak = MIN_DB, peakAt = 0;
   const RANK = { green: 0, yellow: 1, red: 2 };
   let state = 'green', holdUntil = 0, episodeIdx = -1, ignoreUntil = 0;
+
+  // ---- green streak (counter) ----
+  // A "callout" is one stretch of talking: voice goes above the talking threshold and ends
+  // after 0.7 s of quiet. Callouts shorter than 0.3 s (clicks, bumps) are ignored.
+  const GAP_MS = 700, MIN_CALLOUT_MS = 300;
+  const MILESTONES = [10, 25, 50, 75, 100, 150, 200];        // every 100 after the last
+  let streak = 0, lastStreak = 0;
+  let inCallout = false, calloutStart = 0, lastVoiceAt = 0, calloutPeak = -99, calloutBroken = false;
+  let msIdx = 0, toastedBest = false, toastedRecord = false, toastTimer = 0;
+
+  const voiceDb = () => Math.max(-50, cfg.yellow - 18);
+  const nextMilestone = () => msIdx < MILESTONES.length ? MILESTONES[msIdx] : 200 + (msIdx - MILESTONES.length + 1) * 100;
+  const breaks = peak => peak >= cfg.red || (cfg.streakReset !== 'red' && peak >= cfg.yellow);
+
+  function toast(text) {
+    const el = $('streakToast');
+    el.textContent = text; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+  }
+  function renderStreak() {
+    const best = sd.bestByDay[dayKey()] || 0;
+    $('streakNum').textContent = streak;
+    $('streakSub').textContent = streak === 0 && lastStreak > 0
+      ? 'Last streak ' + lastStreak + '  ·  Best today ' + best
+      : 'in a row  ·  Best today ' + best;
+  }
+  function breakStreak() {
+    if (inCallout) calloutBroken = true;          // the sentence that went loud can never count
+    if (streak > 0) lastStreak = streak;
+    streak = 0; msIdx = 0; toastedBest = false; toastedRecord = false;
+    renderStreak();
+  }
+  function endCallout() {
+    inCallout = false;
+    if (lastVoiceAt - calloutStart < MIN_CALLOUT_MS) return;
+    const k = dayKey();
+    const tk = sd.talkByDay[k] || (sd.talkByDay[k] = { g: 0, l: 0 });
+    const loud = calloutBroken || calloutPeak >= cfg.yellow;
+    if (loud) tk.l++; else tk.g++;
+    if (calloutBroken || breaks(calloutPeak)) { breakStreak(); saveStreak(); return; }
+
+    streak++;
+    if (streak >= nextMilestone()) { toast(nextMilestone() + ' in a row!'); msIdx++; }
+    if (streak > (sd.record || 0)) {
+      if (!toastedRecord && sd.record >= 25) { toast('New record!'); toastedRecord = true; toastedBest = true; }
+      sd.record = streak;
+    }
+    if (streak > (sd.bestByDay[k] || 0)) {
+      if (!toastedBest && (sd.bestByDay[k] || 0) >= 10) { toast('New best today!'); toastedBest = true; }
+      sd.bestByDay[k] = streak;
+    }
+    saveStreak();
+    renderStreak();
+    const n = $('streakNum'); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump');
+  }
+  function trackCallout(now) {
+    // Right after a beep, quiet sounds may be our own speaker output, so don't start a new
+    // callout from them. Loud sounds are clearly him, and an ongoing callout keeps its peak.
+    const beepWindow = now < ignoreUntil;
+    if (level >= voiceDb()) {
+      if (!inCallout) {
+        if (beepWindow && level < cfg.yellow) return;
+        inCallout = true; calloutStart = now; calloutPeak = level; calloutBroken = false;
+      }
+      lastVoiceAt = now;
+      if (level > calloutPeak) calloutPeak = level;
+    } else if (inCallout && now - lastVoiceAt > GAP_MS) {
+      endCallout();
+    }
+  }
 
   function playChime(force) {
     if ((!force && !cfg.chime) || cfg.chimeVol <= 0) return;
@@ -497,6 +625,7 @@
         playYellowTone(false);
       }
       saveEvents(); updateCounts();
+      if (target === 'red' || cfg.streakReset !== 'red') breakStreak();
       state = target; holdUntil = now + cfg.hold * 1000;
     } else if (target === state) {
       if (state !== 'green') holdUntil = now + cfg.hold * 1000;   // still loud: keep extending
@@ -533,8 +662,10 @@
     $('fill').style.width = pct(level) + '%';
     $('peak').style.left = 'calc(' + pct(peak) + '% - 2px)';
     $('dbNow').textContent = Math.round(level) + ' dB';
+    trackCallout(now);
   }
   requestAnimationFrame(loop);
+  renderStreak();
 
   start(cfg.mic);
 })();
